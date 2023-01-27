@@ -480,7 +480,7 @@ export function create_client(app, target) {
 							body:
 								resource.method === 'GET' || resource.method === 'HEAD'
 									? undefined
-									: await resource.blob(),
+									: await (await resource.blob()).text(),
 							cache: resource.cache,
 							credentials: resource.credentials,
 							headers: resource.headers,

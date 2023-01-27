@@ -203,11 +203,12 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 	 */
 	return async (input, init) => {
 		const cloned_body = input instanceof Request && input.body ? input.clone().body : null;
-
 		const cloned_headers =
 			input instanceof Request && [...input.headers].length
 				? new Headers(input.headers)
 				: init?.headers;
+
+		console.log('universal fetch()', input, init);
 
 		let response = await event.fetch(input, init);
 
@@ -279,17 +280,66 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 					return body;
 				}
 
+				if (key === 'body') {
+					const body = response.body;
+					if (!body) return body;
+					const [a, b] = body.tee();
+					let buffer = new Uint8Array();
+					const reader = a.getReader();
+					/**
+					 * @param {{
+					 * 	done: boolean
+					 * 	value?: Uint8Array
+					 * }} opts
+					 */
+					function bufferToFetched({ done, value }) {
+						if (done) {
+							if (dependency) {
+								dependency.body = new Uint8Array(buffer);
+							}
+							fetched.push({
+								url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
+								method: event.request.method,
+								request_body: /** @type {string | ArrayBufferView | undefined} */ (
+									input instanceof Request && cloned_body ? buffer.join() : init?.body
+								),
+								request_headers: cloned_headers,
+								response_body: buffer,
+								response: response
+							});
+						} else if (value) {
+							const newBuffer = new Uint8Array(buffer.length + value.length);
+							newBuffer.set(buffer, 0);
+							newBuffer.set(value, buffer.length);
+							buffer = newBuffer;
+							reader.read().then(bufferToFetched);
+						}
+					}
+					reader.read().then(bufferToFetched);
+					return b;
+				}
+
 				if (key === 'arrayBuffer') {
 					return async () => {
 						const buffer = await response.arrayBuffer();
+						const body = new Uint8Array(buffer);
 
 						if (dependency) {
-							dependency.body = new Uint8Array(buffer);
+							dependency.body = body;
 						}
 
-						// TODO should buffer be inlined into the page (albeit base64'd)?
-						// any conditions in which it shouldn't be?
-
+						fetched.push({
+							url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
+							method: event.request.method,
+							request_body: /** @type {string | ArrayBufferView | undefined} */ (
+								input instanceof Request && cloned_body
+									? await stream_to_string(cloned_body)
+									: init?.body
+							),
+							request_headers: cloned_headers,
+							response_body: body,
+							response: response
+						});
 						return buffer;
 					};
 				}

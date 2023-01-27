@@ -1,5 +1,6 @@
 import { escape_html_attr } from '../../../utils/escape.js';
 import { hash } from '../../hash.js';
+import { base64 } from './crypto.js';
 
 /**
  * Inside a script element, only `</script` and `<!--` hold special meaning to the HTML parser.
@@ -65,8 +66,6 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		body: fetched.response_body
 	};
 
-	const safe_payload = JSON.stringify(payload).replace(pattern, (match) => replacements[match]);
-
 	const attrs = [
 		'type="application/json"',
 		'data-sveltekit-fetched',
@@ -78,15 +77,29 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		const values = [];
 
 		if (fetched.request_headers) {
-			values.push([...new Headers(fetched.request_headers)].join(','));
+			const headers = new Headers(fetched.request_headers);
+			// browser hash will not have access to this header
+			headers.delete('cookie');
+			values.push([...headers].join(','));
 		}
 
 		if (fetched.request_body) {
 			values.push(fetched.request_body);
 		}
 
+		// console.log('serialize_data: url', fetched.url);
+		// console.log('serialize_data: request_body', fetched.request_body);
+		// console.log('serialize_data: values', JSON.stringify(values));
+
 		attrs.push(`data-hash="${hash(...values)}"`);
 	}
+
+	if (payload.body?.constructor === Uint8Array) {
+		payload.body = base64(payload.body);
+		attrs.push('data-binary');
+	}
+
+	// console.log('serialize_data: payload.body ', payload.body);
 
 	// Compute the time the response should be cached, taking into account max-age and age.
 	// Do not cache at all if a `Vary: *` header is present, as this indicates that the
@@ -98,6 +111,8 @@ export function serialize_data(fetched, filter, prerendering = false) {
 			attrs.push(`data-ttl="${ttl}"`);
 		}
 	}
+
+	const safe_payload = JSON.stringify(payload).replace(pattern, (match) => replacements[match]);
 
 	return `<script ${attrs.join(' ')}>${safe_payload}</script>`;
 }
