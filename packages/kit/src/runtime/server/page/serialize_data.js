@@ -1,5 +1,6 @@
 import { escape_html_attr } from '../../../utils/escape.js';
 import { hash } from '../../hash.js';
+import { base64 } from './crypto.js';
 
 /**
  * Inside a script element, only `</script` and `<!--` hold special meaning to the HTML parser.
@@ -65,8 +66,6 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		body: fetched.response_body
 	};
 
-	const safe_payload = JSON.stringify(payload).replace(pattern, (match) => replacements[match]);
-
 	const attrs = [
 		'type="application/json"',
 		'data-sveltekit-fetched',
@@ -88,6 +87,11 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		attrs.push(`data-hash="${hash(...values)}"`);
 	}
 
+	if (payload.body?.constructor === Uint8Array) {
+		payload.body = base64(payload.body);
+		attrs.push('data-binary');
+	}
+
 	// Compute the time the response should be cached, taking into account max-age and age.
 	// Do not cache at all if a `Vary: *` header is present, as this indicates that the
 	// cache is likely to get busted.
@@ -98,6 +102,8 @@ export function serialize_data(fetched, filter, prerendering = false) {
 			attrs.push(`data-ttl="${ttl}"`);
 		}
 	}
+
+	const safe_payload = JSON.stringify(payload).replace(pattern, (match) => replacements[match]);
 
 	return `<script ${attrs.join(' ')}>${safe_payload}</script>`;
 }
