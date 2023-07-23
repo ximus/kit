@@ -243,115 +243,36 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 			}
 		}
 
-		const proxy = new Proxy(response, {
-			get(response, key, _receiver) {
-				async function text() {
-					const body = await response.text();
+		const response_clone = response.clone();
 
-					if (!body || typeof body === 'string') {
-						const status_number = Number(response.status);
-						if (isNaN(status_number)) {
-							throw new Error(
-								`response.status is not a number. value: "${
-									response.status
-								}" type: ${typeof response.status}`
-							);
-						}
+		// save the body concurrently to be serialized
+		(async () => {
+			const body = await response.arrayBuffer();
 
-						fetched.push({
-							url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
-							method: event.request.method,
-							request_body: /** @type {string | ArrayBufferView | undefined} */ (
-								input instanceof Request && cloned_body
-									? await stream_to_string(cloned_body)
-									: init?.body
-							),
-							request_headers: cloned_headers,
-							response_body: body,
-							response
-						});
-					}
-
-					if (dependency) {
-						dependency.body = body;
-					}
-
-					return body;
-				}
-
-				if (key === 'body') {
-					const body = response.body;
-					if (!body) return body;
-					const [a, b] = body.tee();
-					let buffer = new Uint8Array();
-					const reader = a.getReader();
-					(async () => {
-						while (true) {
-							const { done, value } = await reader.read();
-							if (done) {
-								if (dependency) {
-									dependency.body = new Uint8Array(buffer);
-								}
-								fetched.push({
-									url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
-									method: event.request.method,
-									request_body: /** @type {string | ArrayBufferView | undefined} */ (
-										input instanceof Request && cloned_body ? buffer.join() : init?.body
-									),
-									request_headers: cloned_headers,
-									response_body: buffer,
-									response: response
-								});
-								break;
-							} else if (value) {
-								const newBuffer = new Uint8Array(buffer.length + value.length);
-								newBuffer.set(buffer, 0);
-								newBuffer.set(value, buffer.length);
-								buffer = newBuffer;
-							}
-						}
-					})();
-					return b;
-				}
-
-				if (key === 'arrayBuffer') {
-					return async () => {
-						const buffer = await response.arrayBuffer();
-						const body = new Uint8Array(buffer);
-
-						if (dependency) {
-							dependency.body = body;
-						}
-
-						fetched.push({
-							url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
-							method: event.request.method,
-							request_body: /** @type {string | ArrayBufferView | undefined} */ (
-								input instanceof Request && cloned_body
-									? await stream_to_string(cloned_body)
-									: init?.body
-							),
-							request_headers: cloned_headers,
-							response_body: body,
-							response: response
-						});
-						return buffer;
-					};
-				}
-
-				if (key === 'text') {
-					return text;
-				}
-
-				if (key === 'json') {
-					return async () => {
-						return JSON.parse(await text());
-					};
-				}
-
-				return Reflect.get(response, key, response);
+			const status_number = Number(response.status);
+			if (isNaN(status_number)) {
+				throw new Error(
+					`response.status is not a number. value: "${
+						response.status
+					}" type: ${typeof response.status}`
+				);
 			}
-		});
+
+			fetched.push({
+				url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
+				method: event.request.method,
+				request_body: /** @type {string | ArrayBufferView | undefined} */ (
+					input instanceof Request && cloned_body ? await stream_to_string(cloned_body) : init?.body
+				),
+				request_headers: cloned_headers,
+				response_body: body,
+				response
+			});
+
+			if (dependency) {
+				dependency.body = body;
+			}
+		})();
 
 		if (csr) {
 			// ensure that excluded headers can't be read
@@ -372,7 +293,7 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 			};
 		}
 
-		return proxy;
+		return response_clone;
 	};
 }
 

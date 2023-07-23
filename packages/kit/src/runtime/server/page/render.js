@@ -268,6 +268,7 @@ export async function render_response({
 	);
 
 	if (page_config.ssr && page_config.csr) {
+		// console.log('fetched', fetched);
 		body += `\n\t\t\t${fetched
 			.map((item) =>
 				serialize_data(item, resolve_opts.filterSerializedResponseHeaders, !!state.prerendering)

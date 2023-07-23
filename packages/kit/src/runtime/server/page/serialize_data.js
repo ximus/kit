@@ -45,6 +45,8 @@ export function serialize_data(fetched, filter, prerendering = false) {
 	/** @type {Record<string, string>} */
 	const headers = {};
 
+	console.log('serializing', fetched);
+
 	let cache_control = null;
 	let age = null;
 	let varyAny = false;
@@ -63,7 +65,7 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		status: fetched.response.status,
 		statusText: fetched.response.statusText,
 		headers,
-		body: fetched.response_body
+		body: base64(new Uint8Array(fetched.response_body))
 	};
 
 	const attrs = [
@@ -85,11 +87,6 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		}
 
 		attrs.push(`data-hash="${hash(...values)}"`);
-	}
-
-	if (payload.body?.constructor === Uint8Array) {
-		payload.body = base64(payload.body);
-		attrs.push('data-binary');
 	}
 
 	// Compute the time the response should be cached, taking into account max-age and age.
