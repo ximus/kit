@@ -285,36 +285,32 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 					const [a, b] = body.tee();
 					let buffer = new Uint8Array();
 					const reader = a.getReader();
-					/**
-					 * @param {{
-					 * 	done: boolean
-					 * 	value?: Uint8Array
-					 * }} opts
-					 */
-					function bufferToFetched({ done, value }) {
-						if (done) {
-							if (dependency) {
-								dependency.body = new Uint8Array(buffer);
+					(async () => {
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) {
+								if (dependency) {
+									dependency.body = new Uint8Array(buffer);
+								}
+								fetched.push({
+									url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
+									method: event.request.method,
+									request_body: /** @type {string | ArrayBufferView | undefined} */ (
+										input instanceof Request && cloned_body ? buffer.join() : init?.body
+									),
+									request_headers: cloned_headers,
+									response_body: buffer,
+									response: response
+								});
+								break;
+							} else if (value) {
+								const newBuffer = new Uint8Array(buffer.length + value.length);
+								newBuffer.set(buffer, 0);
+								newBuffer.set(value, buffer.length);
+								buffer = newBuffer;
 							}
-							fetched.push({
-								url: same_origin ? url.href.slice(event.url.origin.length) : url.href,
-								method: event.request.method,
-								request_body: /** @type {string | ArrayBufferView | undefined} */ (
-									input instanceof Request && cloned_body ? buffer.join() : init?.body
-								),
-								request_headers: cloned_headers,
-								response_body: buffer,
-								response: response
-							});
-						} else if (value) {
-							const newBuffer = new Uint8Array(buffer.length + value.length);
-							newBuffer.set(buffer, 0);
-							newBuffer.set(value, buffer.length);
-							buffer = newBuffer;
-							reader.read().then(bufferToFetched);
 						}
-					}
-					reader.read().then(bufferToFetched);
+					})();
 					return b;
 				}
 

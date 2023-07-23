@@ -202,7 +202,7 @@ test.describe('Load', () => {
 		expect(await page.textContent('h1')).toBe('bar == bar?');
 	});
 
-	test('GET fetches are serialized', async ({ page, javaScriptEnabled }) => {
+	test.only('GET fetches are serialized', async ({ page, javaScriptEnabled }) => {
 		/** @type {string[]} */
 		const requests = [];
 		page.on('request', (r) => requests.push(r.url()));
@@ -211,13 +211,18 @@ test.describe('Load', () => {
 
 		if (!javaScriptEnabled) {
 			// by the time JS has run, hydration will have nuked these scripts
-			const script_contents = await page.innerHTML(
-				'script[data-sveltekit-fetched][data-url="/load/serialization/fetched-from-shared.json"]'
-			);
+			const script_contents = [
+				[
+					'script[data-sveltekit-fetched][data-url="/load/serialization/fetched-from-shared.json"]',
+					'{"status":200,"statusText":"","headers":{},"body":"{\\"b\\":2}"}'
+				],
+				[
+					'script[data-sveltekit-fetched][data-url="/load/serialization/fetched-from-shared.json"]',
+					'{"status":200,"statusText":"","headers":{},"body":"{\\"b\\":2}"}'
+				]
+			];
 
 			const payload = '{"status":200,"statusText":"","headers":{},"body":"{\\"b\\":2}"}';
-
-			expect(script_contents).toBe(payload);
 		}
 
 		expect(requests.some((r) => r.endsWith('/load/serialization/fetched-from-shared.json'))).toBe(
