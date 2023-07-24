@@ -86,18 +86,13 @@ export function initial_fetch(resource, opts) {
 
 	/** @type {HTMLScriptElement | null} */
 	const script = document.querySelector(selector);
-	console.log(
-		'script[data-sveltekit-fetched]',
-		document.querySelectorAll('script[data-sveltekit-fetched]')
-	);
-	console.log('cached for selector', selector, script);
 	if (script?.textContent) {
 		let { body, ...init } = JSON.parse(script.textContent);
 
+		body = Uint8Array.from(window.atob(body), (c) => c.charCodeAt(0));
+
 		const ttl = script.getAttribute('data-ttl');
 		if (ttl) cache.set(selector, { body, init, ttl: 1000 * Number(ttl) });
-
-		body = Uint8Array.from(window.atob(body), (c) => c.charCodeAt(0));
 
 		return Promise.resolve(new Response(body, init));
 	}

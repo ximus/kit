@@ -140,7 +140,7 @@ export interface PageNode {
 
 export interface PrerenderDependency {
 	response: Response;
-	body: null | ArrayBuffer;
+	body: null | Uint8Array | string;
 }
 
 export interface PrerenderOptions {

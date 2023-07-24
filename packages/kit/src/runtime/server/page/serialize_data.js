@@ -28,6 +28,8 @@ const replacements = {
 
 const pattern = new RegExp(`[${Object.keys(replacements).join('')}]`, 'g');
 
+const text_encoder = new TextEncoder();
+
 /**
  * Generates a raw HTML string containing a safe script element carrying data and associated attributes.
  *
@@ -44,8 +46,6 @@ const pattern = new RegExp(`[${Object.keys(replacements).join('')}]`, 'g');
 export function serialize_data(fetched, filter, prerendering = false) {
 	/** @type {Record<string, string>} */
 	const headers = {};
-
-	console.log('serializing', fetched);
 
 	let cache_control = null;
 	let age = null;
@@ -65,7 +65,11 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		status: fetched.response.status,
 		statusText: fetched.response.statusText,
 		headers,
-		body: base64(new Uint8Array(fetched.response_body))
+		body: base64(
+			ArrayBuffer.isView(fetched.response_body)
+				? fetched.response_body
+				: text_encoder.encode(fetched.response_body)
+		)
 	};
 
 	const attrs = [

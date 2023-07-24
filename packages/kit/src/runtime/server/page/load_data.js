@@ -243,20 +243,20 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 			}
 		}
 
+		const status_number = Number(response.status);
+		if (isNaN(status_number)) {
+			throw new Error(
+				`response.status is not a number. value: "${
+					response.status
+				}" type: ${typeof response.status}`
+			);
+		}
+
 		const response_clone = response.clone();
 
-		// save the body concurrently to be serialized
+		// stash the body concurrently for fetch serialization
 		(async () => {
-			const body = await response.arrayBuffer();
-
-			const status_number = Number(response.status);
-			if (isNaN(status_number)) {
-				throw new Error(
-					`response.status is not a number. value: "${
-						response.status
-					}" type: ${typeof response.status}`
-				);
-			}
+			const body = new Uint8Array(await response.arrayBuffer());
 
 			fetched.push({
 				url: same_origin ? url.href.slice(event.url.origin.length) : url.href,

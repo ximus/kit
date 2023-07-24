@@ -6,7 +6,7 @@ export interface Fetched {
 	method: string;
 	request_body?: string | ArrayBufferView | null;
 	request_headers?: HeadersInit | undefined;
-	response_body: ArrayBuffer;
+	response_body: string | Uint8Array;
 	response: Response;
 }
 
