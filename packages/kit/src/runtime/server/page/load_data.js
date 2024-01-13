@@ -281,6 +281,9 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 			}
 		}
 
+		/** @type {ReadableStream<Uint8Array>} */
+		let teed_body;
+
 		const proxy = new Proxy(response, {
 			get(response, key, _receiver) {
 				/**
@@ -313,6 +316,7 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 				}
 
 				if (key === 'body') {
+					if (teed_body) return teed_body;
 					const body = response.body;
 					if (!body) return body;
 					const [a, b] = body.tee();
@@ -339,7 +343,7 @@ export function create_universal_fetch(event, state, fetched, csr, resolve_opts)
 						}
 					}
 					reader.read().then(buffer_to_fetched);
-					return b;
+					return (teed_body = b);
 				}
 
 				if (key === 'arrayBuffer') {
